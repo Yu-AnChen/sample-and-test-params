@@ -74,6 +74,13 @@ def adjust_intensity(img, intensity_in_range, intensity_gamma):
     return img.astype("float32")
 
 
+def percentile_intensity(img, percentile):
+    """Compute intensity percentiles from a dask array using subsampling."""
+    with dask.diagnostics.ProgressBar():
+        ss = max(np.ceil(np.prod(img.shape) / (10_000**2)).astype("int"), 1)
+        return np.percentile(img[::ss, ::ss].compute(), percentile)
+
+
 def da_to_zarr(da_img, zarr_store=None, num_workers=None, out_shape=None, chunks=None):
     if zarr_store is None:
         if out_shape is None:
@@ -107,9 +114,7 @@ def segment_slide(
 
     _img = reader.pyramid[0][channel]
 
-    with dask.diagnostics.ProgressBar():
-        ss = np.ceil(np.prod(_img.shape) / (10_000**2)).astype("int")
-        p0, p1 = np.percentile(_img[::ss, ::ss].compute(), [intensity_p0, intensity_p1])
+    p0, p1 = percentile_intensity(_img, [intensity_p0, intensity_p1])
     in_range = (p0, p1)
     print("intensity range:", np.round(in_range, decimals=2))
 

@@ -3,18 +3,20 @@ from __future__ import annotations
 import pathlib
 import re
 
+import dask.array as da
 import numpy as np
-import skimage.exposure
 import skimage.util
 import tifffile
 
 from .sampler import WsiPatchSampler
 from .segment import (
     adjust_intensity,
+    da_to_zarr,
     difference_mask_from_file,
     dilate_slide_mask,
     make_qc_image,
     mask_to_contour,
+    percentile_intensity,
     segment_slide,
     segment_tile,
 )
@@ -52,6 +54,10 @@ def sample_and_test(
         )
         patches = sampler.extract_patches(channel=channel)
 
+        # Montage patches into a single 2D image (n_bins rows × n_patches cols)
+        grid_shape = (n_bins, n_patches)
+        montage_img = skimage.util.montage(list(patches), grid_shape=grid_shape)
+
         for ps in group:
             intensity_p0 = ps.get("intensity_p0", 0.1)
             intensity_p1 = ps.get("intensity_p1", 99.95)
@@ -60,10 +66,12 @@ def sample_and_test(
             flow_threshold = ps.get("flow_threshold", 0.4)
             min_size = ps.get("min_size")
 
-            # Compute intensity range from all patches
-            all_pixels = np.concatenate([p.ravel() for p in patches])
-            p0, p1 = np.percentile(all_pixels, [intensity_p0, intensity_p1])
+            # Compute intensity range from the whole slide
+            p0, p1 = percentile_intensity(
+                sampler.reader.pyramid[0][channel], [intensity_p0, intensity_p1]
+            )
             in_range = (p0, p1)
+            print(f"  {ps['name']} intensity range: {np.round(in_range, decimals=2)}")
 
             seg_kwargs = dict(
                 diameter=diameter,
@@ -72,35 +80,49 @@ def sample_and_test(
             if min_size is not None:
                 seg_kwargs["min_size"] = min_size
 
-            pairs = []
-            for patch in patches:
-                adjusted = adjust_intensity(
-                    patch.copy(), intensity_in_range=in_range, intensity_gamma=intensity_gamma
-                )
-                mask = segment_tile(adjusted, **seg_kwargs)
-                contour = mask_to_contour(mask.astype("int32"))
+            # Convert montage to dask array chunked by patch_size
+            da_montage = da.from_array(montage_img, chunks=patch_size)
 
-                # Normalize raw patch for display
-                raw_display = skimage.exposure.rescale_intensity(
-                    adjusted, out_range="float"
-                )
+            # Adjust intensity via map_blocks (same as segment_slide)
+            da_adjusted = da_montage.map_blocks(
+                adjust_intensity,
+                intensity_in_range=in_range,
+                intensity_gamma=intensity_gamma,
+                dtype="float32",
+            )
+            za_adjusted = da_to_zarr(da_adjusted)
 
-                # Create overlay: raw patch with contour in white
-                overlay = raw_display.copy()
-                overlay[contour] = 1.0
+            # Segment via map_overlap (same as segment_slide)
+            da_adjusted_zarr = da.from_zarr(za_adjusted, name=False)
+            da_mask = da_adjusted_zarr.map_overlap(
+                segment_tile,
+                depth={0: 128, 1: 128},
+                boundary="none",
+                dtype=bool,
+                **seg_kwargs,
+            )
+            print(f"  run cellpose; number of chunks: {da_mask.numblocks}")
+            za_mask = da_to_zarr(da_mask, num_workers=2)
 
-                # Side-by-side: raw | overlay
-                pair = np.concatenate([raw_display, overlay], axis=1)
-                pairs.append(pair)
+            # Create QC overlay: contours on adjusted montage
+            da_binary = da.from_zarr(za_mask, name=False)
+            contour = da_binary.astype("int32").map_blocks(
+                mask_to_contour, dtype=bool
+            )
 
-            # Arrange into montage: rows = bins, cols = patches
-            grid_shape = (n_bins, n_patches)
-            montage = skimage.util.montage(pairs, grid_shape=grid_shape)
+            adjusted_np = np.array(za_adjusted)
+            contour_np = np.array(da_to_zarr(contour))
+
+            overlay = adjusted_np.copy()
+            overlay[contour_np > 0] = 1.0
+
+            # Side-by-side: adjusted | overlay
+            qc_img = np.concatenate([adjusted_np, overlay], axis=1)
 
             out_path = out_dir / f"{ps['name']}.tif"
             tifffile.imwrite(
                 out_path,
-                (montage * 255).clip(0, 255).astype("uint8"),
+                (qc_img * 255).clip(0, 255).astype("uint8"),
                 compression="zlib",
             )
             print(f"  saved: {out_path}")
