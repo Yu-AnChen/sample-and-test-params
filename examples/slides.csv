@@ -1,0 +1,3 @@
+name,img_path,out_dir
+LSP32265,/path/to/LSP32265_P202.ome.tif,/path/to/output
+LSP31116,/path/to/LSP31116_P202.ome.tif,/path/to/output

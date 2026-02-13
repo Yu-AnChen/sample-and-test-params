@@ -1,0 +1,22 @@
+[defaults]
+channel = 0
+patch_size = 1024
+n_bins = 8
+n_patches = 8
+intensity_p0 = 0.1
+intensity_p1 = 99.95
+intensity_gamma = 1.0
+diameter = 15.0
+flow_threshold = 0.4
+dilation_radius = 3
+
+[param_sets.small_cells]
+diameter = 10.0
+intensity_gamma = 0.8
+
+[param_sets.default_cells]
+diameter = 15.0
+
+[param_sets.large_cells]
+diameter = 20.0
+flow_threshold = 0.6

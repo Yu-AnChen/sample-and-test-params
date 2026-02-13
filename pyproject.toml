@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "wsi-cp3"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "palom",
+    "cellpose",
+    "dask",
+    "dask-image",
+    "scikit-image",
+    "scipy",
+    "numpy",
+    "torch",
+    "tifffile",
+    "tomli; python_version < '3.11'",
+]
+
+[project.scripts]
+wsi-cp3 = "wsi_cp3.cli:main"

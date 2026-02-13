@@ -1,0 +1,4 @@
+name,channel,patch_size,n_bins,n_patches,intensity_p0,intensity_p1,intensity_gamma,diameter,flow_threshold,min_size,dilation_radius
+small_cells,0,1024,8,8,0.1,99.95,0.8,10.0,0.4,,3
+default_cells,0,1024,8,8,0.1,99.95,1.0,15.0,0.4,,3
+large_cells,0,1024,8,8,0.1,99.95,1.0,20.0,0.6,,3
