@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=64"]
-build-backend = "setuptools.backends._legacy:_Backend"
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "wsi-cp3"
-version = "0.1.0"
+dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = [
     "palom",
@@ -21,3 +21,5 @@ dependencies = [
 
 [project.scripts]
 wsi-cp3 = "wsi_cp3.cli:main"
+
+[tool.setuptools_scm]
