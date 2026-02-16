@@ -5,6 +5,8 @@ import inspect
 import pathlib
 import time
 
+import logging
+
 import dask.array as da
 import dask.config
 import dask.diagnostics
@@ -21,12 +23,30 @@ import zarr
 
 _model_cache: dict[tuple[str, str], object] = {}
 
+_MODEL_LOG_KEYWORDS = {"model set to be used", "loading model", "model diam_mean"}
+
+
+class _ModelLoadFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        return any(kw in msg for kw in _MODEL_LOG_KEYWORDS)
+
+
+def _setup_cellpose_denoise_logging():
+    logger = logging.getLogger("cellpose.denoise")
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
+    handler.addFilter(_ModelLoadFilter())
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
 
 def get_model(model_type="cyto3", restore_type="deblur_cyto3"):
     key = (model_type, restore_type)
     if key not in _model_cache:
         import cellpose.denoise
 
+        _setup_cellpose_denoise_logging()
         _model_cache[key] = cellpose.denoise.CellposeDenoiseModel(
             gpu=True,
             model_type=model_type,
@@ -35,7 +55,14 @@ def get_model(model_type="cyto3", restore_type="deblur_cyto3"):
     return _model_cache[key]
 
 
-def segment_tile(timg, diameter, flow_threshold, model_type="cyto3", restore_type="deblur_cyto3", **kwargs):
+def segment_tile(
+    timg,
+    diameter,
+    flow_threshold,
+    model_type="cyto3",
+    restore_type="deblur_cyto3",
+    **kwargs,
+):
     model = get_model(model_type=model_type, restore_type=restore_type)
     valid_args = inspect.signature(model.eval).parameters.keys()
     eval_kwargs = {
