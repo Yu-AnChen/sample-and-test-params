@@ -9,7 +9,7 @@ try:
 except ModuleNotFoundError:
     import tomli as tomllib
 
-PARAM_DEFAULTS: dict[str, int | float] = {
+PARAM_DEFAULTS: dict[str, int | float | str] = {
     "channel": 0,
     "patch_size": 1024,
     "n_bins": 8,
@@ -20,6 +20,8 @@ PARAM_DEFAULTS: dict[str, int | float] = {
     "diameter": 15.0,
     "flow_threshold": 0.4,
     "dilation_radius": 3,
+    "model_type": "cyto3",
+    "restore_type": "deblur_cyto3",
     # min_size intentionally omitted — auto-computed from diameter
 }
 

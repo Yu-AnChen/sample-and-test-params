@@ -19,24 +19,24 @@ import skimage.util
 import torch
 import zarr
 
-_model = None
+_model_cache: dict[tuple[str, str], object] = {}
 
 
-def get_model():
-    global _model
-    if _model is None:
+def get_model(model_type="cyto3", restore_type="deblur_cyto3"):
+    key = (model_type, restore_type)
+    if key not in _model_cache:
         import cellpose.denoise
 
-        _model = cellpose.denoise.CellposeDenoiseModel(
+        _model_cache[key] = cellpose.denoise.CellposeDenoiseModel(
             gpu=True,
-            model_type="cyto3",
-            restore_type="deblur_cyto3",
+            model_type=model_type,
+            restore_type=restore_type,
         )
-    return _model
+    return _model_cache[key]
 
 
-def segment_tile(timg, diameter, flow_threshold, **kwargs):
-    model = get_model()
+def segment_tile(timg, diameter, flow_threshold, model_type="cyto3", restore_type="deblur_cyto3", **kwargs):
+    model = get_model(model_type=model_type, restore_type=restore_type)
     valid_args = inspect.signature(model.eval).parameters.keys()
     eval_kwargs = {
         "x": timg,
@@ -112,6 +112,8 @@ def segment_slide(
     intensity_gamma=1.0,
     diameter=15.0,
     flow_threshold=0.4,
+    model_type="cyto3",
+    restore_type="deblur_cyto3",
     **kwargs,
 ):
     start = int(time.perf_counter())
@@ -146,6 +148,8 @@ def segment_slide(
         dtype=bool,
         diameter=diameter,
         flow_threshold=flow_threshold,
+        model_type=model_type,
+        restore_type=restore_type,
         **kwargs,
     )
     print("run cellpose; number of chunks:", _binary_mask.numblocks)

@@ -74,9 +74,14 @@ def sample_and_test(
             in_range = (p0, p1)
             print(f"  {ps['name']} intensity range: {np.round(in_range, decimals=2)}")
 
+            model_type = ps.get("model_type", "cyto3")
+            restore_type = ps.get("restore_type", "deblur_cyto3")
+
             seg_kwargs = dict(
                 diameter=diameter,
                 flow_threshold=flow_threshold,
+                model_type=model_type,
+                restore_type=restore_type,
             )
             if min_size is not None:
                 seg_kwargs["min_size"] = min_size
@@ -153,6 +158,8 @@ def run_slide(
         intensity_gamma=params.get("intensity_gamma", 1.0),
         diameter=params.get("diameter", 15.0),
         flow_threshold=params.get("flow_threshold", 0.4),
+        model_type=params.get("model_type", "cyto3"),
+        restore_type=params.get("restore_type", "deblur_cyto3"),
         **seg_kwargs,
     )
 
