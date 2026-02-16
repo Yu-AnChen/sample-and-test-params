@@ -76,7 +76,7 @@ def sample_and_test(
 
             model_type = ps.get("model_type", "cyto3")
             restore_type = ps.get("restore_type", "deblur_cyto3")
-            model_backend = ps.get("model_backend", "denoise")
+            model_backend = ps.get("model_backend", "cp3")
             pretrained_model = ps.get("pretrained_model", "cpsam")
 
             seg_kwargs = dict(
@@ -164,7 +164,7 @@ def run_slide(
         flow_threshold=params.get("flow_threshold", 0.4),
         model_type=params.get("model_type", "cyto3"),
         restore_type=params.get("restore_type", "deblur_cyto3"),
-        model_backend=params.get("model_backend", "denoise"),
+        model_backend=params.get("model_backend", "cp3"),
         pretrained_model=params.get("pretrained_model", "cpsam"),
         **seg_kwargs,
     )

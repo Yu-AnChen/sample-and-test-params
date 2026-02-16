@@ -22,7 +22,7 @@ PARAM_DEFAULTS: dict[str, int | float | str] = {
     "dilation_radius": 3,
     "model_type": "cyto3",
     "restore_type": "deblur_cyto3",
-    "model_backend": "denoise",
+    "model_backend": "cp3",
     "pretrained_model": "cpsam",
     # min_size intentionally omitted — auto-computed from diameter
 }

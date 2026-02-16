@@ -9,6 +9,9 @@ intensity_gamma = 1.0
 diameter = 15.0
 flow_threshold = 0.4
 dilation_radius = 3
+model_backend = "cp3"
+# pretrained_model is only used when model_backend = "sam"
+# pretrained_model = "cpsam"
 
 [param_sets.small_cells]
 diameter = 10.0
@@ -20,3 +23,7 @@ diameter = 15.0
 [param_sets.large_cells]
 diameter = 20.0
 flow_threshold = 0.6
+
+[param_sets.sam_default]
+model_backend = "cpsam"
+pretrained_model = "cpsam"

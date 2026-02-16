@@ -43,20 +43,20 @@ def _setup_cellpose_logging(logger_name):
 
 
 def get_model(
-    model_backend="denoise",
+    model_backend="cp3",
     model_type="cyto3",
     restore_type="deblur_cyto3",
     pretrained_model="cpsam",
 ):
-    if model_backend == "denoise":
-        key = ("denoise", model_type, restore_type)
-    elif model_backend == "sam":
-        key = ("sam", pretrained_model)
+    if model_backend == "cp3":
+        key = ("cp3", model_type, restore_type)
+    elif model_backend == "cpsam":
+        key = ("cpsam", pretrained_model)
     else:
         raise ValueError(f"Unknown model_backend: {model_backend!r}")
 
     if key not in _model_cache:
-        if model_backend == "denoise":
+        if model_backend == "cp3":
             import cellpose.denoise
 
             _setup_cellpose_logging("cellpose.denoise")
@@ -82,7 +82,7 @@ def segment_tile(
     flow_threshold,
     model_type="cyto3",
     restore_type="deblur_cyto3",
-    model_backend="denoise",
+    model_backend="cp3",
     pretrained_model="cpsam",
     **kwargs,
 ):
@@ -169,7 +169,7 @@ def segment_slide(
     flow_threshold=0.4,
     model_type="cyto3",
     restore_type="deblur_cyto3",
-    model_backend="denoise",
+    model_backend="cp3",
     pretrained_model="cpsam",
     **kwargs,
 ):
