@@ -21,7 +21,7 @@ import skimage.util
 import torch
 import zarr
 
-_model_cache: dict[tuple[str, str], object] = {}
+_model_cache: dict[tuple, object] = {}
 
 _MODEL_LOG_KEYWORDS = {"model set to be used", "loading model", "model diam_mean"}
 
@@ -32,26 +32,47 @@ class _ModelLoadFilter(logging.Filter):
         return any(kw in msg for kw in _MODEL_LOG_KEYWORDS)
 
 
-def _setup_cellpose_denoise_logging():
-    logger = logging.getLogger("cellpose.denoise")
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
-    handler.addFilter(_ModelLoadFilter())
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+def _setup_cellpose_logging(logger_name):
+    logger = logging.getLogger(logger_name)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
+        handler.addFilter(_ModelLoadFilter())
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
 
 
-def get_model(model_type="cyto3", restore_type="deblur_cyto3"):
-    key = (model_type, restore_type)
+def get_model(
+    model_backend="denoise",
+    model_type="cyto3",
+    restore_type="deblur_cyto3",
+    pretrained_model="cpsam",
+):
+    if model_backend == "denoise":
+        key = ("denoise", model_type, restore_type)
+    elif model_backend == "sam":
+        key = ("sam", pretrained_model)
+    else:
+        raise ValueError(f"Unknown model_backend: {model_backend!r}")
+
     if key not in _model_cache:
-        import cellpose.denoise
+        if model_backend == "denoise":
+            import cellpose.denoise
 
-        _setup_cellpose_denoise_logging()
-        _model_cache[key] = cellpose.denoise.CellposeDenoiseModel(
-            gpu=True,
-            model_type=model_type,
-            restore_type=restore_type,
-        )
+            _setup_cellpose_logging("cellpose.denoise")
+            _model_cache[key] = cellpose.denoise.CellposeDenoiseModel(
+                gpu=True,
+                model_type=model_type,
+                restore_type=restore_type,
+            )
+        else:
+            import cellpose.models
+
+            _setup_cellpose_logging("cellpose.models")
+            _model_cache[key] = cellpose.models.CellposeModel(
+                gpu=True,
+                pretrained_model=pretrained_model,
+            )
     return _model_cache[key]
 
 
@@ -61,9 +82,16 @@ def segment_tile(
     flow_threshold,
     model_type="cyto3",
     restore_type="deblur_cyto3",
+    model_backend="denoise",
+    pretrained_model="cpsam",
     **kwargs,
 ):
-    model = get_model(model_type=model_type, restore_type=restore_type)
+    model = get_model(
+        model_backend=model_backend,
+        model_type=model_type,
+        restore_type=restore_type,
+        pretrained_model=pretrained_model,
+    )
     valid_args = inspect.signature(model.eval).parameters.keys()
     eval_kwargs = {
         "x": timg,
@@ -141,6 +169,8 @@ def segment_slide(
     flow_threshold=0.4,
     model_type="cyto3",
     restore_type="deblur_cyto3",
+    model_backend="denoise",
+    pretrained_model="cpsam",
     **kwargs,
 ):
     start = int(time.perf_counter())
@@ -177,6 +207,8 @@ def segment_slide(
         flow_threshold=flow_threshold,
         model_type=model_type,
         restore_type=restore_type,
+        model_backend=model_backend,
+        pretrained_model=pretrained_model,
         **kwargs,
     )
     print("run cellpose; number of chunks:", _binary_mask.numblocks)

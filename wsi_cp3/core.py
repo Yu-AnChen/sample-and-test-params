@@ -76,12 +76,16 @@ def sample_and_test(
 
             model_type = ps.get("model_type", "cyto3")
             restore_type = ps.get("restore_type", "deblur_cyto3")
+            model_backend = ps.get("model_backend", "denoise")
+            pretrained_model = ps.get("pretrained_model", "cpsam")
 
             seg_kwargs = dict(
                 diameter=diameter,
                 flow_threshold=flow_threshold,
                 model_type=model_type,
                 restore_type=restore_type,
+                model_backend=model_backend,
+                pretrained_model=pretrained_model,
             )
             if min_size is not None:
                 seg_kwargs["min_size"] = min_size
@@ -160,6 +164,8 @@ def run_slide(
         flow_threshold=params.get("flow_threshold", 0.4),
         model_type=params.get("model_type", "cyto3"),
         restore_type=params.get("restore_type", "deblur_cyto3"),
+        model_backend=params.get("model_backend", "denoise"),
+        pretrained_model=params.get("pretrained_model", "cpsam"),
         **seg_kwargs,
     )
 
