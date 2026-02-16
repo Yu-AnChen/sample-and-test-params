@@ -6,6 +6,7 @@ import pathlib
 import time
 
 import dask.array as da
+import dask.config
 import dask.diagnostics
 import dask_image.ndmeasure
 import numpy as np
@@ -76,9 +77,16 @@ def adjust_intensity(img, intensity_in_range, intensity_gamma):
 
 def percentile_intensity(img, percentile):
     """Compute intensity percentiles from a dask array using subsampling."""
-    with dask.diagnostics.ProgressBar():
-        ss = max(np.ceil(np.prod(img.shape) / (10_000**2)).astype("int"), 1)
-        return np.percentile(img[::ss, ::ss].compute(), percentile)
+    assert isinstance(img, da.Array)
+    # source
+    # https://github.com/weigertlab/spotiflow/blob/4f876fcc280ed69d2dfc9d0b6b63e15f5724f64e/spotiflow/utils/utils.py#L409-L414
+    max_samples = 10_000**2
+    n_skip = int(max(1, img.size // max_samples))
+    with dask.config.set(**{"array.slicing.split_large_chunks": False}):
+        with dask.diagnostics.ProgressBar():
+            return da.percentile(
+                img.ravel()[::n_skip], percentile, internal_method="tdigest"
+            ).compute()
 
 
 def da_to_zarr(da_img, zarr_store=None, num_workers=None, out_shape=None, chunks=None):
