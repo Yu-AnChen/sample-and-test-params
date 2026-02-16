@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from importlib.metadata import version
 
 from .config import load_params, load_slides
 from .core import run_slide, sample_and_test
@@ -10,6 +11,9 @@ def main():
     parser = argparse.ArgumentParser(
         prog="wsi-cp3",
         description="WSI sampling & Cellpose segmentation tool",
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {version('wsi-cp3')}"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
