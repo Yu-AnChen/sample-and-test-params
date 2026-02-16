@@ -6,7 +6,7 @@ import re
 import dask.array as da
 import numpy as np
 import skimage.util
-import tifffile
+import palom
 
 from .sampler import WsiPatchSampler
 from .segment import (
@@ -58,6 +58,7 @@ def sample_and_test(
         grid_shape = (n_bins, n_patches)
         montage_img = skimage.util.montage(list(patches), grid_shape=grid_shape)
 
+        masks = []
         for ps in group:
             intensity_p0 = ps.get("intensity_p0", 0.1)
             intensity_p1 = ps.get("intensity_p1", 99.95)
@@ -81,7 +82,7 @@ def sample_and_test(
                 seg_kwargs["min_size"] = min_size
 
             # Convert montage to dask array chunked by patch_size
-            da_montage = da.from_array(montage_img, chunks=patch_size)
+            da_montage = da.from_array(montage_img, chunks=patch_size, name=False)
 
             # Adjust intensity via map_blocks (same as segment_slide)
             da_adjusted = da_montage.map_blocks(
@@ -91,6 +92,7 @@ def sample_and_test(
                 dtype="float32",
             )
             za_adjusted = da_to_zarr(da_adjusted)
+            da_montage = None
 
             # Segment via map_overlap (same as segment_slide)
             da_adjusted_zarr = da.from_zarr(za_adjusted, name=False)
@@ -103,31 +105,26 @@ def sample_and_test(
             )
             print(f"  run cellpose; number of chunks: {da_mask.numblocks}")
             za_mask = da_to_zarr(da_mask, num_workers=2)
+            masks.append(za_mask)
+            print(f"  {ps['name']} completed\n")
 
-            # Create QC overlay: contours on adjusted montage
-            da_binary = da.from_zarr(za_mask, name=False)
-            contour = da_binary.astype("int32").map_blocks(
-                mask_to_contour, dtype=bool
+        mosaics = [montage_img]
+        max_val = montage_img.max()
+        for mm in masks:
+            contour = max_val * (
+                da.from_zarr(mm, name=False)
+                .astype("int32")
+                .map_blocks(mask_to_contour, dtype="bool")
+                .astype(montage_img.dtype)
             )
-
-            adjusted_np = np.array(za_adjusted)
-            contour_np = np.array(da_to_zarr(contour))
-
-            overlay = adjusted_np.copy()
-            overlay[contour_np > 0] = 1.0
-
-            # Side-by-side: adjusted | overlay
-            qc_img = np.concatenate([adjusted_np, overlay], axis=1)
-
-            out_path = out_dir / f"{ps['name']}.tif"
-            tifffile.imwrite(
-                out_path,
-                (qc_img * 255).clip(0, 255).astype("uint8"),
-                compression="zlib",
-            )
-            print(f"  saved: {out_path}")
-            output_paths.append(out_path)
-
+            mosaics.append(contour)
+        palom.pyramid.write_pyramid(
+            mosaics,
+            out_dir / f"channel_{channel:02}.ome.tif",
+            channel_names=[f"channel_{channel:02}"] + [ps["name"] for ps in group],
+            tile_size=1024,
+            compression="zlib",
+        )
     return output_paths
 
 
